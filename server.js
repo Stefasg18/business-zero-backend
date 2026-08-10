@@ -78,8 +78,10 @@ async function auth(req,res,next){
       req.tgUser={id:Number(req.headers["x-demo-user"]),first_name:"Demo",username:"demo"};
       return next();
     }
-    const {user}=verifyTelegramInitData(req.headers["x-telegram-init-data"]);
-    req.tgUser=user;next();
+    const {user,params}=verifyTelegramInitData(req.headers["x-telegram-init-data"]);
+    req.tgUser=user;
+    req.tgParams=params;
+    next();
   }catch(e){res.status(401).json({error:e.message})}
 }
 
@@ -100,20 +102,55 @@ async function patchPlayer(id,patch){
   const rows=await sb(`players?telegram_id=eq.${encodeURIComponent(id)}`,{method:"PATCH",body:patch,prefer:"return=representation"});
   return rows[0];
 }
+function parseReferrerId(startParam,userId){
+  const m=String(startParam||"").match(/^ref_(\d+)$/);
+  if(!m)return null;
+  const referrerId=Number(m[1]);
+  if(!Number.isSafeInteger(referrerId) || referrerId===Number(userId))return null;
+  return referrerId;
+}
+
+async function attachReferralIfEligible(p,startParam){
+  const referrerId=parseReferrerId(startParam,p.telegram_id);
+  if(!referrerId || p.referrer_id)return p;
+
+  // Repair a missed referral only during the first 24 hours after signup.
+  const createdAt=new Date(p.created_at).getTime();
+  if(!Number.isFinite(createdAt) || Date.now()-createdAt > 24*60*60*1000)return p;
+
+  const inviter=await getPlayer(referrerId);
+  if(!inviter)return p;
+
+  // Conditional update prevents duplicate referral credit.
+  const rows=await sb(
+    `players?telegram_id=eq.${encodeURIComponent(p.telegram_id)}&referrer_id=is.null`,
+    {method:"PATCH",body:{referrer_id:referrerId,updated_at:new Date().toISOString()},prefer:"return=representation"}
+  );
+
+  if(rows?.[0]){
+    const freshInviter=await getPlayer(referrerId);
+    await patchPlayer(referrerId,{cash:Number(freshInviter.cash)+1000});
+    return rows[0];
+  }
+  return await getPlayer(p.telegram_id);
+}
+
 async function ensurePlayer(user,startParam=""){
   let p=await getPlayer(user.id);
   if(p){
     if(p.first_name!==user.first_name || p.username!==(user.username||null)){
       p=await patchPlayer(user.id,{first_name:user.first_name||"Игрок",username:user.username||null,photo_url:user.photo_url||null});
     }
+    p=await attachReferralIfEligible(p,startParam);
     return {player:p,created:false};
   }
-  let referrerId=null;
-  const m=String(startParam).match(/^ref_(\d+)$/);
-  if(m && Number(m[1])!==Number(user.id)){
-    const inviter=await getPlayer(m[1]);
-    if(inviter) referrerId=Number(m[1]);
+
+  let referrerId=parseReferrerId(startParam,user.id);
+  if(referrerId){
+    const inviter=await getPlayer(referrerId);
+    if(!inviter)referrerId=null;
   }
+
   p=await createPlayer(user,referrerId);
   if(referrerId){
     const inviter=await getPlayer(referrerId);
@@ -155,7 +192,11 @@ async function stateFor(id,pOverride=null){
 app.get("/health",(_req,res)=>res.json({ok:true,app:"business-zero-v2"}));
 
 app.post("/api/session",auth,async(req,res)=>{
-  try{await ensurePlayer(req.tgUser,req.body?.startParam||"");res.json({ok:true})}
+  try{
+    const startParam=req.tgParams?.get("start_param")||"";
+    await ensurePlayer(req.tgUser,startParam);
+    res.json({ok:true});
+  }
   catch(e){res.status(500).json({error:e.message})}
 });
 
