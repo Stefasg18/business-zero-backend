@@ -1,0 +1,66 @@
+name: Business Zero v5.6.5 build5658 smoke
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for backend and Telegram menu
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 72); do
+            h="$(curl -fsS --max-time 15 https://business-zero-backend.onrender.com/health || true)"
+            m="$(curl -fsS --max-time 15 https://business-zero-backend.onrender.com/health/menu || true)"
+            echo "$h"
+            echo "$m"
+            if grep -q 'business-zero-v5.6.5' <<<"$h" && grep -q '"miniAppBuild":5658' <<<"$h" && grep -q 'v565.html?build=5658' <<<"$m"; then ok=1; break; fi
+            sleep 5
+          done
+          test "$ok" = 1
+      - name: Verify frontend source
+        shell: bash
+        run: |
+          set -euo pipefail
+          html="$(curl -fsS --max-time 15 'https://stefasg18.github.io/business-zero-/v565.html?build=5658&smoke=1')"
+          boot="$(curl -fsS --max-time 15 'https://stefasg18.github.io/business-zero-/boot-v565.js?v=5658&smoke=1')"
+          grep -q 'boot-v565.js?v=5658' <<<"$html"
+          grep -q "CACHE='5658'" <<<"$boot"
+          ! grep -q "'version-guard-v56.js'" <<<"$boot"
+      - name: Install Playwright WebKit
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps webkit >/dev/null
+      - name: Open live app in iPhone-like WebKit
+        shell: bash
+        run: |
+          cat > check.mjs <<'JS'
+          import { webkit, devices } from 'playwright';
+          const browser=await webkit.launch({headless:true});
+          const ctx=await browser.newContext({...devices['iPhone 13']});
+          const page=await ctx.newPage();
+          const errors=[];
+          page.on('pageerror',e=>errors.push(String(e.message||e)));
+          await page.goto('https://stefasg18.github.io/business-zero-/v565.html?build=5658&webkit=1',{waitUntil:'domcontentloaded',timeout:30000});
+          await page.waitForTimeout(22000);
+          const result=await page.evaluate(()=>({
+            app:!!document.querySelector('.app'),
+            display:document.querySelector('.app')?getComputedStyle(document.querySelector('.app')).display:null,
+            top:(document.querySelector('.topbar .eyebrow')?.textContent||'').trim(),
+            boot:(document.querySelector('#bzBoot565Text')?.textContent||'').trim(),
+            title:document.title,
+            mode:(document.getElementById('modeBadge')?.textContent||'').trim()
+          }));
+          console.log(JSON.stringify({result,errors},null,2));
+          if(!result.app||result.display==='none')process.exit(2);
+          if(result.top!=='BUSINESS GAME · 5.6.5')process.exit(3);
+          if(!result.boot.startsWith('Готово'))process.exit(4);
+          if(result.top.includes('3.7.2')||result.top.includes('5.6.4'))process.exit(5);
+          await browser.close();
+          JS
+          node check.mjs
