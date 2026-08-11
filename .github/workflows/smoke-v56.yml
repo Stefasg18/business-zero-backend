@@ -1,3 +1,4 @@
+# temporary verification only
 name: Business Zero v5.6 live smoke
 on:
   pull_request:
