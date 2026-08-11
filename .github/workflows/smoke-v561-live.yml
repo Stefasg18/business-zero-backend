@@ -24,24 +24,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          boot="$(curl -fsS --max-time 15 'https://stefasg18.github.io/business-zero-/v561.html?build=561&smoke=1')"
-          grep -q 'Загрузка версии 5.6.1' <<<"$boot"
-          grep -q 'fetch(`./?source=561-' <<<"$boot"
-          root="$(curl -fsS --max-time 15 'https://stefasg18.github.io/business-zero-/?source=561-smoke')"
-          grep -q 'BUSINESS GAME · 5.6' <<<"$root"
+          curl -fsS --max-time 15 'https://stefasg18.github.io/business-zero-/v561.html?build=561&smoke=2' -o /tmp/boot.html
+          grep -Fq 'Загрузка версии 5.6.1' /tmp/boot.html
+          grep -Fq 'fetch(`./?source=561-' /tmp/boot.html
+          curl -fsS --max-time 15 'https://stefasg18.github.io/business-zero-/?source=561-smoke2' -o /tmp/root.html
+          grep -Fq 'BUSINESS GAME · 5.6' /tmp/root.html
           python - <<'PY'
-          import urllib.request,re
-          url='https://stefasg18.github.io/business-zero-/?source=561-python'
-          html=urllib.request.urlopen(url,timeout=15).read().decode()
+          import re
+          html=open('/tmp/root.html',encoding='utf-8').read()
           html=re.sub(r'\s*<script\s+defer\s+src="ios-render-recovery-v551\.js\?v=560"></script>','',html,flags=re.I)
           html=html.replace('?v=560','?v=561').replace('Бизнес с нуля 5.6','Бизнес с нуля 5.6.1').replace('BUSINESS GAME · 5.6','BUSINESS GAME · 5.6.1')
           html=html.replace('</head>','  <script defer src="safe-overlay-v561.js?v=561"></script>\n</head>')
-          assert 'ios-render-recovery-v551.js?v=560' not in html
-          assert 'BUSINESS GAME · 5.6.1' in html
-          assert 'config.js?v=561' in html
-          assert 'cosmetic-access-v52.js?v=561' in html
-          assert 'safe-overlay-v561.js?v=561' in html
-          print('transform ok')
+          checks={
+            'old recovery removed':'ios-render-recovery-v551.js?v=560' not in html,
+            'version':'BUSINESS GAME · 5.6.1' in html,
+            'config cache':'config.js?v=561' in html,
+            'cosmetic cache':'cosmetic-access-v52.js?v=561' in html,
+            'safe cleanup':'safe-overlay-v561.js?v=561' in html,
+          }
+          print(checks)
+          assert all(checks.values())
           PY
       - name: Verify fresh critical assets
         run: |
