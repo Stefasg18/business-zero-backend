@@ -1,0 +1,45 @@
+name: Business Zero smoke test
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Wait for Render deploy
+        run: sleep 45
+
+      - name: Check backend v5 health
+        shell: bash
+        run: |
+          set -e
+          for i in {1..12}; do
+            BODY="$(curl -fsS --max-time 20 https://business-zero-backend.onrender.com/health || true)"
+            echo "Attempt $i: $BODY"
+            if echo "$BODY" | grep -q 'business-zero-v5.0'; then
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Backend did not report v5.0 in time"
+          exit 1
+
+      - name: Check frontend module
+        shell: bash
+        run: |
+          set -e
+          for i in {1..8}; do
+            CONFIG="$(curl -fsS --max-time 20 https://stefasg18.github.io/business-zero-/config.js || true)"
+            MODULE="$(curl -fsS --max-time 20 https://stefasg18.github.io/business-zero-/game-v50.js || true)"
+            if echo "$CONFIG" | grep -q 'game-v50.js' && echo "$MODULE" | grep -q '__BZ_GAME_V50__'; then
+              echo "Frontend v5.0 is live"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Frontend v5.0 did not become live in time"
+          exit 1
