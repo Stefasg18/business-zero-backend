@@ -1,0 +1,63 @@
+name: Business Zero v5.6.5 Telegram init smoke
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  telegram-init:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Playwright WebKit
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps webkit >/dev/null
+      - name: Verify Telegram initData boot reaches ONLINE
+        shell: bash
+        run: |
+          cat > check-telegram.mjs <<'JS'
+          import { webkit, devices } from 'playwright';
+          const browser=await webkit.launch({headless:true});
+          const ctx=await browser.newContext({...devices['iPhone 13']});
+          const page=await ctx.newPage();
+          const errors=[];
+          page.on('pageerror',e=>errors.push(String(e.message||e)));
+          page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+
+          await page.route('https://telegram.org/js/telegram-web-app.js*', async route=>{
+            const mock=`window.Telegram={WebApp:{initData:'query_id=TEST&user=%7B%22id%22%3A123456789%2C%22first_name%22%3A%22Test%22%2C%22username%22%3A%22test_user%22%7D&auth_date=1700000000&hash=test',initDataUnsafe:{user:{id:123456789,first_name:'Test',username:'test_user'},start_param:''},platform:'ios',version:'8.0',ready(){},expand(){},HapticFeedback:{impactOccurred(){},notificationOccurred(){}},openInvoice(){},openTelegramLink(){}}};`;
+            await route.fulfill({status:200,contentType:'application/javascript',body:mock});
+          });
+
+          await page.route('https://business-zero-backend.onrender.com/**', async route=>{
+            const u=new URL(route.request().url());
+            let body={ok:true};
+            if(u.pathname==='/api/state') body={state:{cash:5000,energy:10,maxEnergy:10,xp:0,level:1,businesses:{},referralCount:0,quests:[],achievements:[],levelRewards:[],loginStreak:null,monetization:{vipActive:false,vipUntil:null,supporterTier:0},lastBonusDate:null,profileCustomization:{},season:null}};
+            else if(u.pathname==='/api/leaderboard') body={players:[]};
+            else if(u.pathname==='/api/store') body={products:[],purchases:[]};
+            await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+          });
+
+          await page.goto('https://stefasg18.github.io/business-zero-/v565.html?build=565&telegram-smoke=1',{waitUntil:'domcontentloaded',timeout:30000});
+          await page.waitForTimeout(20000);
+          const result=await page.evaluate(()=>({
+            top:(document.querySelector('.topbar .eyebrow')?.textContent||'').trim(),
+            mode:(document.querySelector('#modeBadge')?.textContent||'').trim(),
+            boot:(document.querySelector('#bzBoot565Text')?.textContent||'').trim(),
+            bootOpacity:document.querySelector('#bzBoot565')?getComputedStyle(document.querySelector('#bzBoot565')).opacity:null,
+            app:!!document.querySelector('.app'),
+            appDisplay:document.querySelector('.app')?getComputedStyle(document.querySelector('.app')).display:null,
+            initData:Boolean(window.Telegram?.WebApp?.initData),
+            name:(document.querySelector('#playerName')?.textContent||'').trim()
+          }));
+          console.log(JSON.stringify({result,errors:errors.slice(0,20)},null,2));
+          if(!result.app||result.appDisplay==='none')process.exit(2);
+          if(!result.initData)process.exit(3);
+          if(result.top!=='BUSINESS GAME · 5.6.5')process.exit(4);
+          if(result.mode!=='ONLINE')process.exit(5);
+          if(!result.boot.startsWith('Готово'))process.exit(6);
+          if(result.name!=='Test')process.exit(7);
+          await browser.close();
+          JS
+          node check-telegram.mjs
