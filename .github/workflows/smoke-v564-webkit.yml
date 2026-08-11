@@ -1,0 +1,74 @@
+name: Business Zero v5.6.4 WebKit smoke
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for backend and Telegram menu
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 72); do
+            h="$(curl -fsS --max-time 15 https://business-zero-backend.onrender.com/health || true)"
+            m="$(curl -fsS --max-time 15 https://business-zero-backend.onrender.com/health/menu || true)"
+            echo "$h"
+            echo "$m"
+            if grep -q 'business-zero-v5.6.4' <<<"$h" && grep -q '"miniAppBuild":564' <<<"$h" && grep -q 'v564.html?build=564' <<<"$m"; then ok=1; break; fi
+            sleep 5
+          done
+          test "$ok" = 1
+      - name: Verify v564 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          html="$(curl -fsS --max-time 15 'https://stefasg18.github.io/business-zero-/v564.html?build=564&smoke=1')"
+          boot="$(curl -fsS --max-time 15 'https://stefasg18.github.io/business-zero-/boot-v564.js?v=564&smoke=1')"
+          race="$(curl -fsS --max-time 15 'https://stefasg18.github.io/business-zero-/racing-stability-v564.js?v=564&smoke=1')"
+          grep -q 'Запуск 5.6.4' <<<"$html"
+          grep -q 'racing-stability-v564.js' <<<"$boot"
+          ! grep -q "'racing-direction-v532.js'" <<<"$boot"
+          ! grep -q 'enforceVersion' <<<"$race"
+      - name: Install Playwright WebKit
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install playwright@1.55.0 >/dev/null 2>&1
+          npx playwright install --with-deps webkit >/dev/null
+      - name: Open live app in iPhone-like WebKit
+        shell: bash
+        run: |
+          cat > check.mjs <<'JS'
+          import { webkit, devices } from 'playwright';
+          const browser=await webkit.launch({headless:true});
+          const ctx=await browser.newContext({...devices['iPhone 13']});
+          const page=await ctx.newPage();
+          const errors=[];
+          page.on('pageerror',e=>errors.push(String(e.message||e)));
+          page.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+          await page.goto('https://stefasg18.github.io/business-zero-/v564.html?build=564&webkit=1',{waitUntil:'domcontentloaded',timeout:30000});
+          await page.waitForTimeout(18000);
+          const result=await page.evaluate(()=>({
+            title:document.title,
+            app:!!document.querySelector('.app'),
+            home:!!document.querySelector('#tab-home'),
+            display:document.querySelector('.app')?getComputedStyle(document.querySelector('.app')).display:null,
+            top:(document.querySelector('.topbar .eyebrow')?.textContent||'').trim(),
+            boot:(document.querySelector('#bzBoot564Text')?.textContent||'').trim(),
+            bootOpacity:document.querySelector('#bzBoot564')?getComputedStyle(document.querySelector('#bzBoot564')).opacity:null,
+            oldRaceGuard:Boolean(window.__BZ_RACING_DIRECTION_V532__),
+            newRaceGuard:Boolean(window.__BZ_RACING_STABILITY_V564__)
+          }));
+          console.log(JSON.stringify({result,errors:errors.slice(0,12)},null,2));
+          if(!result.app||!result.home||result.display==='none')process.exit(2);
+          if(result.top!=='BUSINESS GAME · 5.6.4')process.exit(3);
+          if(result.boot.startsWith('Модуль 29/32: racing-direction-v532.js'))process.exit(4);
+          if(!result.newRaceGuard)process.exit(5);
+          if(result.oldRaceGuard)process.exit(6);
+          if(!['Готово','Готово. Пропущено ошибок: 1','Готово. Пропущено ошибок: 2'].some(x=>result.boot.startsWith(x)))process.exit(7);
+          await browser.close();
+          JS
+          node check.mjs
