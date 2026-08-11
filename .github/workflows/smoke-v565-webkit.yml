@@ -22,6 +22,26 @@ jobs:
             sleep 5
           done
           test "$ok" = 1
+      - name: Wait for v565 Pages files
+        shell: bash
+        run: |
+          set -euo pipefail
+          urls=(
+            'https://stefasg18.github.io/business-zero-/v565.html?build=565&smoke=1'
+            'https://stefasg18.github.io/business-zero-/boot-v565.js?v=5651&smoke=1'
+            'https://stefasg18.github.io/business-zero-/runtime-guard-v565.js?v=5651&smoke=1'
+            'https://stefasg18.github.io/business-zero-/stability-v372.js?v=5651&smoke=1'
+          )
+          for url in "${urls[@]}"; do
+            ok=0
+            for i in $(seq 1 36); do
+              code="$(curl -L -sS -o /tmp/page.out -w '%{http_code}' --max-time 15 "$url" || true)"
+              echo "$code $url"
+              if [ "$code" = "200" ]; then ok=1; break; fi
+              sleep 5
+            done
+            test "$ok" = 1
+          done
       - name: Verify v565 source
         shell: bash
         run: |
