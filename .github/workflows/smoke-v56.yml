@@ -1,0 +1,41 @@
+name: Business Zero v5.6 live smoke
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for backend v5.6 and synced Telegram menu
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 60); do
+            body="$(curl -fsS --max-time 15 https://business-zero-backend.onrender.com/health || true)"
+            menu="$(curl -fsS --max-time 15 https://business-zero-backend.onrender.com/health/menu || true)"
+            echo "health: $body"
+            echo "menu: $menu"
+            if grep -q 'business-zero-v5.6' <<<"$body" && grep -q '"telegramMenuSynced":true' <<<"$body" && grep -q '"ok":true' <<<"$menu" && grep -q 'build=560' <<<"$menu"; then ok=1; break; fi
+            sleep 5
+          done
+          test "$ok" = 1
+      - name: Check live GitHub Pages v5.6 document
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 40); do
+            url="https://stefasg18.github.io/business-zero-/?build=560&smoke=${GITHUB_RUN_ID}"
+            html="$(curl -fsS --max-time 15 "$url" || true)"
+            if grep -q 'BUSINESS GAME · 5.6' <<<"$html" && grep -q 'config.js?v=560' <<<"$html" && grep -q 'version-guard-v56.js?v=560' <<<"$html" && grep -q 'party-arena-v55.js?v=560' <<<"$html"; then ok=1; break; fi
+            sleep 5
+          done
+          test "$ok" = 1
+      - name: Check critical v5.6 assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in config.js app.js game-v50.js social-racing-v53.js party-arena-v55.js version-guard-v56.js; do
+            curl -fsS --max-time 15 "https://stefasg18.github.io/business-zero-/$f?v=560" >/dev/null
+          done
