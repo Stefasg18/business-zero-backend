@@ -10,7 +10,7 @@ process.env.PORT=String(PUBLIC_PORT);
 const app=express();
 const BOT_TOKEN=process.env.BOT_TOKEN;
 const WEB_ORIGIN=process.env.WEB_ORIGIN||"*";
-const MINI_APP_URL="https://stefasg18.github.io/business-zero-/v565.html?build=5656";
+const MINI_APP_URL="https://stefasg18.github.io/business-zero-/v565.html?build=5658";
 
 app.use(cors({origin:WEB_ORIGIN==="*"?true:WEB_ORIGIN,allowedHeaders:["Content-Type","X-Telegram-Init-Data","X-Demo-User"]}));
 app.use(express.json({limit:"96kb"}));
@@ -23,13 +23,7 @@ async function syncTelegramMenu(){
     const response=await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setChatMenuButton`,{
       method:"POST",
       headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        menu_button:{
-          type:"web_app",
-          text:"Играть",
-          web_app:{url:MINI_APP_URL}
-        }
-      })
+      body:JSON.stringify({menu_button:{type:"web_app",text:"Играть",web_app:{url:MINI_APP_URL}}})
     });
     const data=await response.json().catch(()=>({}));
     if(!response.ok||!data.ok)throw new Error(data.description||`Telegram HTTP ${response.status}`);
@@ -43,9 +37,7 @@ async function syncTelegramMenu(){
 
 function forwardHeaders(req){
   const h={};
-  for(const [k,v] of Object.entries(req.headers)){
-    if(!["host","content-length","connection"].includes(k)&&v!==undefined)h[k]=v;
-  }
+  for(const [k,v] of Object.entries(req.headers))if(!["host","content-length","connection"].includes(k)&&v!==undefined)h[k]=v;
   return h;
 }
 
@@ -60,18 +52,7 @@ async function inner(req){
 
 app.get("/health",(_req,res)=>{
   res.setHeader("Cache-Control","no-store");
-  res.json({
-    ok:true,
-    app:"business-zero-v5.6.5",
-    economy:"atomic",
-    anticheat:true,
-    safeMemoryBoot:true,
-    telegramInitWait:true,
-    racingObserverLoopFixed:true,
-    localPartyArena:true,
-    telegramMenuSynced:menuSync.ok,
-    miniAppBuild:5656
-  });
+  res.json({ok:true,app:"business-zero-v5.6.5",economy:"atomic",anticheat:true,safeMemoryBoot:true,telegramInitWait:true,racingObserverLoopFixed:true,localPartyArena:true,singleVersionGuard:true,telegramMenuSynced:menuSync.ok,miniAppBuild:5658});
 });
 
 app.get("/health/menu",(_req,res)=>{
