@@ -39,7 +39,7 @@ jobs:
       - name: Open live app in iPhone-like WebKit
         shell: bash
         run: |
-          cat > /tmp/check.mjs <<'JS'
+          cat > check.mjs <<'JS'
           import { webkit, devices } from 'playwright';
           const browser = await webkit.launch({headless:true});
           const ctx = await browser.newContext({...devices['iPhone 13']});
@@ -47,7 +47,7 @@ jobs:
           const errors=[];
           page.on('pageerror',e=>errors.push(String(e.message||e)));
           page.on('console',m=>{ if(m.type()==='error') errors.push(m.text()); });
-          await page.goto('https://stefasg18.github.io/business-zero-/v563.html?build=563&webkit=1',{waitUntil:'domcontentloaded',timeout:30000});
+          await page.goto('https://stefasg18.github.io/business-zero-/v563.html?build=563&webkit=2',{waitUntil:'domcontentloaded',timeout:30000});
           await page.waitForTimeout(15000);
           const result=await page.evaluate(()=>({
             title:document.title,
@@ -62,7 +62,7 @@ jobs:
           if(!result.app || !result.home || result.display==='none') process.exit(2);
           if(!result.text.includes('Бизнес с нуля')) process.exit(3);
           if(result.boot.startsWith('Ошибка запуска')) process.exit(4);
-          await page.screenshot({path:'/tmp/v563.png',fullPage:false});
+          await page.screenshot({path:'v563.png',fullPage:false});
           await browser.close();
           JS
-          node /tmp/check.mjs
+          node check.mjs
