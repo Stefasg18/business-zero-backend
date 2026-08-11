@@ -1,0 +1,40 @@
+name: Business Zero v5.6.2 live verification
+on:
+  pull_request:
+    branches: [main]
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for backend v5.6.2 and Telegram menu
+        shell: bash
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 72); do
+            body="$(curl -fsS --max-time 15 https://business-zero-backend.onrender.com/health || true)"
+            menu="$(curl -fsS --max-time 15 https://business-zero-backend.onrender.com/health/menu || true)"
+            echo "$body"
+            echo "$menu"
+            if grep -q 'business-zero-v5.6.2' <<<"$body" && grep -q '"miniAppBuild":562' <<<"$body" && grep -q 'v562.html?build=562' <<<"$menu"; then ok=1; break; fi
+            sleep 5
+          done
+          test "$ok" = 1
+      - name: Verify static v562 document
+        shell: bash
+        run: |
+          set -euo pipefail
+          html="$(curl -fsS --max-time 15 'https://stefasg18.github.io/business-zero-/v562.html?build=562&smoke=1')"
+          grep -q 'BUSINESS GAME · 5.6.2' <<<"$html"
+          grep -q 'config.js?v=562' <<<"$html"
+          grep -q 'party-arena-v55.js?v=562' <<<"$html"
+          grep -q 'safe-overlay-v561.js?v=562' <<<"$html"
+          ! grep -q 'ios-render-recovery-v551' <<<"$html"
+          ! grep -q 'document.write' <<<"$html"
+          ! grep -q 'document.open' <<<"$html"
+      - name: Verify fresh critical assets
+        run: |
+          set -euo pipefail
+          for f in styles.css minigame.css config.js app.js cosmetic-access-v52.js social-racing-v53.js party-arena-v55.js safe-overlay-v561.js version-guard-v56.js; do
+            curl -fsS --max-time 15 "https://stefasg18.github.io/business-zero-/$f?v=562" >/dev/null
+          done
