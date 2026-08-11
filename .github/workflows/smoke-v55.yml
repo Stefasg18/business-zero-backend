@@ -1,0 +1,45 @@
+name: Business Zero v5.5 smoke check
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/smoke-v55.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wait for backend 5.5
+        shell: bash
+        run: |
+          ok=0
+          for i in {1..18}; do
+            body=$(curl -fsS --max-time 20 https://business-zero-backend.onrender.com/health || true)
+            echo "backend attempt $i: $body"
+            if echo "$body" | grep -q 'business-zero-v5.5'; then ok=1; break; fi
+            sleep 10
+          done
+          test "$ok" = "1"
+      - name: Check backend readiness
+        run: |
+          curl -fsS --max-time 20 https://business-zero-backend.onrender.com/health/ready | tee /tmp/ready.json
+          grep -q '"database":true' /tmp/ready.json
+      - name: Wait for GitHub Pages 5.5
+        shell: bash
+        run: |
+          ok=0
+          for i in {1..18}; do
+            cfg=$(curl -fsS --max-time 20 "https://stefasg18.github.io/business-zero-/config.js?smoke=${RANDOM}" || true)
+            echo "pages attempt $i"
+            if echo "$cfg" | grep -q 'BZ_APP_VERSION = "5.5"' && echo "$cfg" | grep -q 'party-arena-v55.js'; then ok=1; break; fi
+            sleep 10
+          done
+          test "$ok" = "1"
+      - name: Check Party Arena asset
+        run: |
+          curl -fsS --max-time 20 "https://stefasg18.github.io/business-zero-/party-arena-v55.js?smoke=${RANDOM}" | grep -q '__BZ_PARTY_ARENA_V55__'
