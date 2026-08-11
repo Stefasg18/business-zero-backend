@@ -10,7 +10,7 @@ process.env.PORT=String(PUBLIC_PORT);
 const app=express();
 const BOT_TOKEN=process.env.BOT_TOKEN;
 const WEB_ORIGIN=process.env.WEB_ORIGIN||"*";
-const MINI_APP_URL="https://stefasg18.github.io/business-zero-/v563.html?build=563";
+const MINI_APP_URL="https://stefasg18.github.io/business-zero-/v564.html?build=564";
 
 app.use(cors({origin:WEB_ORIGIN==="*"?true:WEB_ORIGIN,allowedHeaders:["Content-Type","X-Telegram-Init-Data","X-Demo-User"]}));
 app.use(express.json({limit:"96kb"}));
@@ -62,13 +62,14 @@ app.get("/health",(_req,res)=>{
   res.setHeader("Cache-Control","no-store");
   res.json({
     ok:true,
-    app:"business-zero-v5.6.3",
+    app:"business-zero-v5.6.4",
     economy:"atomic",
     anticheat:true,
     partyArena:true,
     safeProgressiveBoot:true,
+    racingObserverLoopFixed:true,
     telegramMenuSynced:menuSync.ok,
-    miniAppBuild:563
+    miniAppBuild:564
   });
 });
 
@@ -94,6 +95,6 @@ app.use(async(req,res)=>{
 });
 
 app.listen(PUBLIC_PORT,()=>{
-  console.log(`Business Zero v5.6.3 gateway on :${PUBLIC_PORT}`);
+  console.log(`Business Zero v5.6.4 gateway on :${PUBLIC_PORT}`);
   setTimeout(()=>void syncTelegramMenu(),1200);
 });
