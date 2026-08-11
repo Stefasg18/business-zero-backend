@@ -10,7 +10,7 @@ process.env.PORT=String(PUBLIC_PORT);
 const app=express();
 const BOT_TOKEN=process.env.BOT_TOKEN;
 const WEB_ORIGIN=process.env.WEB_ORIGIN||"*";
-const MINI_APP_URL="https://stefasg18.github.io/business-zero-/v565.html?build=5652";
+const MINI_APP_URL="https://stefasg18.github.io/business-zero-/v565.html?build=5654";
 
 app.use(cors({origin:WEB_ORIGIN==="*"?true:WEB_ORIGIN,allowedHeaders:["Content-Type","X-Telegram-Init-Data","X-Demo-User"]}));
 app.use(express.json({limit:"96kb"}));
@@ -69,7 +69,7 @@ app.get("/health",(_req,res)=>{
     telegramInitWait:true,
     racingObserverLoopFixed:true,
     telegramMenuSynced:menuSync.ok,
-    miniAppBuild:5652
+    miniAppBuild:5654
   });
 });
 
