@@ -14,8 +14,8 @@ const SUPABASE_URL=String(process.env.SUPABASE_URL||"").replace(/\/$/,"");
 const SUPABASE_SECRET_KEY=process.env.SUPABASE_SECRET_KEY;
 const WEB_ORIGIN=process.env.WEB_ORIGIN||"*";
 const DEMO_MODE=process.env.DEMO_MODE==="true";
-const MINI_APP_URL="https://stefasg18.github.io/business-zero-/v565.html?build=5660";
-const TRAINERS=new Set(["memory","math","route","focus","profit","sequence"]);
+const MINI_APP_URL="https://stefasg18.github.io/business-zero-/v565.html?build=5661";
+const TRAINERS=new Set(["memory","math","route","focus","profit","sequence","reaction","oddone","change","balance","timer","classify"]);
 
 app.use(cors({origin:WEB_ORIGIN==="*"?true:WEB_ORIGIN,allowedHeaders:["Content-Type","X-Telegram-Init-Data","X-Demo-User"]}));
 app.use(express.json({limit:"96kb"}));
@@ -110,7 +110,7 @@ async function inner(req){
 
 app.get("/health",(_req,res)=>{
   res.setHeader("Cache-Control","no-store");
-  res.json({ok:true,app:"business-zero-v5.6.5",economy:"atomic",anticheat:true,safeMemoryBoot:true,telegramInitWait:true,racingObserverLoopFixed:true,localPartyArena:true,xpTrainers:true,singleVersionGuard:true,telegramMenuSynced:menuSync.ok,miniAppBuild:5660});
+  res.json({ok:true,app:"business-zero-v5.6.5",economy:"atomic",anticheat:true,safeMemoryBoot:true,telegramInitWait:true,racingObserverLoopFixed:true,localPartyArena:true,xpTrainers:true,xpTrainerCount:12,singleVersionGuard:true,telegramMenuSynced:menuSync.ok,miniAppBuild:5661});
 });
 
 app.get("/api/v57/xp/stats",auth,async(req,res)=>{
